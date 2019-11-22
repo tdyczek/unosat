@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Function, Variable
 from torch.nn.modules.loss import _Loss
+from sklearn.metrics import f1_score
 
 
 class DiceCoeff(Function):
@@ -80,3 +81,9 @@ def iou(input, target):
     fn = ((b_input == 0) & (tflat == 1)).sum().float()
 
     return tp / (tp + fp + fn + smooth)
+
+
+def f1(input, target):
+    _input = input.detach().cpu().numpy()
+    _target = (target > 0).detach().cpu().numpy()
+    return f1_score(_input.reshape(-1), _target.reshape(-1))

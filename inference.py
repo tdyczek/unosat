@@ -1,26 +1,27 @@
 from pathlib import Path
+
+import geopandas as gpd
 import numpy as np
+import rasterio
+import torch
+from rasterio.features import shapes as r_shapes
+from tqdm import tqdm
+
 from data_conf import extract_ims
 from data_provider import load_city_imagery
-from models import UNet11
-import torch
-from tqdm import tqdm
-import rasterio
-from rasterio.features import shapes as r_shapes
-from shapely.geometry import shape as s_shape
-import geopandas as gpd
+from models import LinkNet
 
-MODELS_PATHS = ['data/models/1/Mosul_2015/UNet16_10',
-                'data/models/1/Najaf_2015/UNet16_5',
-                'data/models/1/Nasiryah_2015/UNet16_10',
-                'data/models/1/Souleimaniye_2015/UNet16_6']
+MODELS_PATHS = ['data/models/2/Mosul_2015/linknet',
+                'data/models/2/Najaf_2015/linknet',
+                'data/models/2/Nasiryah_2015/linknet',
+                'data/models/2/Souleimaniye_2015/linknet']
 TEST_DATA = Path("data/test")
-OUT_PATH = Path("data/out/1")
-WINDOW_SIZE = 1120
+OUT_PATH = Path("data/out/2")
+WINDOW_SIZE = 2240
 
 
 def get_model(path):
-    model = UNet11().cuda()
+    model = LinkNet().cuda()
     model.load_state_dict(torch.load(path))
     model.eval()
     return model
@@ -38,8 +39,9 @@ def infer_one(image, model, out_image):
             chunk = np.stack([image[0][x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE],
                               image[1][x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE]], axis=0)
             chunk = chunk[np.newaxis, ...]
-            chunk = torch.tensor(chunk).cuda()
-            pred = model(chunk)[0, 0].detach().cpu().numpy()
+            with torch.no_grad():
+                chunk = torch.tensor(chunk).cuda()
+                pred = model(chunk)[0, 0].detach().cpu().numpy()
             out_image[x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE] += pred
     return out_image
 

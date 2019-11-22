@@ -1,3 +1,4 @@
+from math import ceil
 from pathlib import Path
 from typing import List
 import numpy as np
@@ -48,13 +49,21 @@ def cut_data(vv, vh, mask, im_size):
            mask[i0: i0 + im_size, i1: i1 + im_size]
 
 
+def count_dataset_size(cities, im_size):
+    data_size = 0
+    for city in cities:
+        for image in city:
+            data_size += (ceil(image[0].shape[0] / im_size) *
+                          ceil(image[0].shape[1] / im_size))
+    return data_size
+
+
 class TrainDataset:
-    def __init__(self, cities: List[CityData], mask_dir: Path, set_len=3500, im_size=448, augment=False):
+    def __init__(self, cities: List[CityData], mask_dir: Path, im_size=896):
         self.imagery = [load_city_imagery(city) for city in cities]
         self.masks = [load_mask(city, mask_dir) for city in cities]
         self.im_size = im_size
-        self.set_len = set_len
-        self.augment = augment
+        self.set_len = count_dataset_size(self.imagery, im_size)
 
     def __len__(self):
         return self.set_len
@@ -69,8 +78,44 @@ class TrainDataset:
         vv, vh, y = cut_data(vv, vh, mask, self.im_size)
         x = np.stack([vv, vh, vv - vh], -1)
 
-        if self.augment:
-            data = transform(image=x, mask=y)
-            x, y = data['image'], data['mask']
+        data = transform(image=x, mask=y)
+        x, y = data['image'], data['mask']
 
         return x.transpose([2, 0, 1])[:2, ...], y
+
+
+class TestDataset:
+    def __init__(self, cities: List[CityData], mask_dir: Path, im_size=896):
+        self.imagery = [load_city_imagery(city) for city in cities]
+        self.masks = [load_mask(city, mask_dir) for city in cities]
+        self.im_size = im_size
+        self.set_len = count_dataset_size(self.imagery, im_size)
+        self.image_gen = self.imagery_generator()
+
+    def __len__(self):
+        return self.set_len
+
+    def __getitem__(self, ix):
+        vv, vh, y = next(self.image_gen)
+        x = np.stack([vv, vh, vv - vh], -1)
+
+        return x.transpose([2, 0, 1])[:2, ...], y
+
+    def imagery_generator(self):
+        im_size = self.im_size
+        city = self.imagery[0]
+        mask = self.masks[0]
+        while True:
+            for image in city:
+                vv, vh = image
+                for x0 in range(0, image[0].shape[0], self.im_size):
+                    for x1 in range(0, image[0].shape[1], self.im_size):
+                        if x0 + self.im_size >= image[0].shape[0]:
+                            x0 = image[0].shape[0] - self.im_size
+
+                        if x1 + self.im_size >= image[0].shape[1]:
+                            x1 = image[0].shape[1] - self.im_size
+
+                        yield vv[x0: x0 + im_size, x1: x1 + im_size], \
+                              vh[x0: x0 + im_size, x1: x1 + im_size], \
+                              mask[x0: x0 + im_size, x1: x1 + im_size]
