@@ -5,6 +5,7 @@ import numpy as np
 from skimage.io import imread
 import random
 
+from constants import TRAIN_WINDOW
 from data_conf import CityData
 from albumentations import Compose, RandomRotate90, VerticalFlip, \
     HorizontalFlip, Transpose, ShiftScaleRotate, RandomSizedCrop
@@ -59,7 +60,7 @@ def count_dataset_size(cities, im_size):
 
 
 class TrainDataset:
-    def __init__(self, cities: List[CityData], mask_dir: Path, im_size=896):
+    def __init__(self, cities: List[CityData], mask_dir: Path, im_size=TRAIN_WINDOW):
         self.imagery = [load_city_imagery(city) for city in cities]
         self.masks = [load_mask(city, mask_dir) for city in cities]
         self.im_size = im_size
@@ -85,7 +86,7 @@ class TrainDataset:
 
 
 class TestDataset:
-    def __init__(self, cities: List[CityData], mask_dir: Path, im_size=896):
+    def __init__(self, cities: List[CityData], mask_dir: Path, im_size=TRAIN_WINDOW):
         self.imagery = [load_city_imagery(city) for city in cities]
         self.masks = [load_mask(city, mask_dir) for city in cities]
         self.im_size = im_size

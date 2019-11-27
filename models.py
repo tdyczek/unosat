@@ -306,7 +306,10 @@ class UNetResNet18(nn.Module):
 
         self.relu = nn.ReLU(inplace=True)
 
-        self.conv1 = nn.Sequential(self.encoder.conv1,
+        conv1 = nn.Conv2d(2, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        conv1.weight.data = self.encoder.conv1.weight.data[:, :2, :, :]
+
+        self.conv1 = nn.Sequential(conv1,
                                    self.encoder.bn1,
                                    self.encoder.relu,
                                    self.pool)
