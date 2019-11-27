@@ -9,40 +9,47 @@ from tqdm import tqdm
 
 from data_conf import extract_ims
 from data_provider import load_city_imagery
-from models import LinkNet
+from models import LinkNet, UNet11
+from skimage.transform import resize
 
-MODELS_PATHS = ['data/models/2/Mosul_2015/linknet',
-                'data/models/2/Najaf_2015/linknet',
-                'data/models/2/Nasiryah_2015/linknet',
-                'data/models/2/Souleimaniye_2015/linknet']
+MODELS_PATHS = ['data/models/1/Mosul_2015/unet',
+                'data/models/1/Najaf_2015/unet',
+                'data/models/1/Nasiryah_2015/unet',
+                'data/models/1/Souleimaniye_2015/unet']
 TEST_DATA = Path("data/test")
-OUT_PATH = Path("data/out/2")
-WINDOW_SIZE = 2240
+OUT_PATH = Path("data/out/3")
+WINDOW_SIZE = 1120
 
 
 def get_model(path):
-    model = LinkNet().cuda()
+    model = UNet11().cuda()
     model.load_state_dict(torch.load(path))
-    model.eval()
+    model = model.eval()
     return model
 
 
 def infer_one(image, model, out_image):
-    for x0 in range(0, image[0].shape[0], WINDOW_SIZE):
-        for x1 in range(0, image[0].shape[1], WINDOW_SIZE):
-            if x0 + WINDOW_SIZE >= image[0].shape[0]:
-                x0 = image[0].shape[0] - WINDOW_SIZE
+    vv, vh = image[0], image[1]
+    if (vv.shape[0] != out_image.shape[0]) or (vv.shape[1] != out_image.shape[1]):
+        vv = resize(vv, out_image.shape, preserve_range=True)
+        vh = resize(vh, out_image.shape, preserve_range=True)
+    for x0 in range(0, vv.shape[0], WINDOW_SIZE):
+        for x1 in range(0, vv.shape[1], WINDOW_SIZE):
+            p0, p1 = x0, x1
+            if x0 + WINDOW_SIZE >= vv.shape[0]:
+                x0 = vv.shape[0] - WINDOW_SIZE
 
-            if x1 + WINDOW_SIZE >= image[0].shape[1]:
-                x1 = image[0].shape[1] - WINDOW_SIZE
+            if x1 + WINDOW_SIZE >= vv.shape[1]:
+                x1 = vv.shape[1] - WINDOW_SIZE
 
-            chunk = np.stack([image[0][x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE],
-                              image[1][x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE]], axis=0)
+            chunk = np.stack([vv[x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE],
+                              vh[x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE]], axis=0)
             chunk = chunk[np.newaxis, ...]
             with torch.no_grad():
-                chunk = torch.tensor(chunk).cuda()
-                pred = model(chunk)[0, 0].detach().cpu().numpy()
-            out_image[x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE] += pred
+                chunk = torch.tensor(chunk).cuda().float()
+                pred = torch.sigmoid(model(chunk)[0, 0]).detach().cpu().numpy()
+            out_image[p0: p0 + WINDOW_SIZE, p1: p1 + WINDOW_SIZE] += ((pred[p0 - x0:, p1 - x1:])/16)
+
     return out_image
 
 
@@ -65,7 +72,7 @@ def main():
         with rasterio.open(city.images[0].vv) as src:
             results = (
                 {'properties': {'id': 1}, 'geometry': s}
-                for i, (s, v) in enumerate(r_shapes((image > 0).astype(np.uint8), mask=(image > 0), transform=src.transform)))
+                for i, (s, v) in enumerate(r_shapes((image > 0.5).astype(np.uint8), mask=(image > 0.5), transform=src.transform)))
         geoms = list(results)
         g_df = gpd.GeoDataFrame.from_features(geoms)
         g_df.crs = {'init': 'epsg:32638'}
