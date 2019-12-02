@@ -9,15 +9,17 @@ from tqdm import tqdm
 
 from data_conf import extract_ims
 from data_provider import load_city_imagery
-from models import LinkNet, UNet11
+from models import LinkNet, UNet11, UNetResNet18
 from skimage.transform import resize
 
-MODELS_PATHS = ['data/models/1/Mosul_2015/unet',
+MODELS_PATHS = [
+                'data/models/1/Mosul_2015/unet',
                 'data/models/1/Najaf_2015/unet',
                 'data/models/1/Nasiryah_2015/unet',
-                'data/models/1/Souleimaniye_2015/unet']
+                'data/models/1/Souleimaniye_2015/unet'
+                ]
 TEST_DATA = Path("data/test")
-OUT_PATH = Path("data/out/3")
+OUT_PATH = Path("data/out/5")
 WINDOW_SIZE = 1120
 
 
@@ -28,11 +30,9 @@ def get_model(path):
     return model
 
 
-def infer_one(image, model, out_image):
+def infer_one(image, model):
+    out_image = np.zeros(image[0].shape, dtype=np.float32)
     vv, vh = image[0], image[1]
-    if (vv.shape[0] != out_image.shape[0]) or (vv.shape[1] != out_image.shape[1]):
-        vv = resize(vv, out_image.shape, preserve_range=True)
-        vh = resize(vh, out_image.shape, preserve_range=True)
     for x0 in range(0, vv.shape[0], WINDOW_SIZE):
         for x1 in range(0, vv.shape[1], WINDOW_SIZE):
             p0, p1 = x0, x1
@@ -47,19 +47,22 @@ def infer_one(image, model, out_image):
             chunk = chunk[np.newaxis, ...]
             with torch.no_grad():
                 chunk = torch.tensor(chunk).cuda().float()
-                pred = torch.sigmoid(model(chunk)[0, 0]).detach().cpu().numpy()
-            out_image[p0: p0 + WINDOW_SIZE, p1: p1 + WINDOW_SIZE] += ((pred[p0 - x0:, p1 - x1:])/16)
+                pred = model(chunk)[0, 0].detach().cpu().numpy()
+            out_image[p0: p0 + WINDOW_SIZE, p1: p1 + WINDOW_SIZE] += pred[p0 - x0:, p1 - x1:]
 
     return out_image
 
 
 def infer_city(city_ims, models):
     out_shape = city_ims[0][0].shape
-    out_im = np.zeros(out_shape, dtype=np.float32)
+    out_image = np.zeros(out_shape, dtype=np.float32)
     for model in tqdm(models):
         for im in tqdm(city_ims):
-            out_im = infer_one(im, model, out_im)
-    return out_im
+            single_out = infer_one(im, model)
+            if (single_out.shape[0] != out_shape[0]) or (single_out.shape[1] != out_shape[1]):
+                single_out = resize(single_out, out_shape, preserve_range=True)
+            out_image += single_out
+    return out_image
 
 
 def main():
@@ -72,7 +75,9 @@ def main():
         with rasterio.open(city.images[0].vv) as src:
             results = (
                 {'properties': {'id': 1}, 'geometry': s}
-                for i, (s, v) in enumerate(r_shapes((image > 0.5).astype(np.uint8), mask=(image > 0.5), transform=src.transform)))
+                for i, (s, v) in enumerate(
+                r_shapes((image > 0).astype(np.uint8), mask=(image > 0),
+                         transform=src.transform)))
         geoms = list(results)
         g_df = gpd.GeoDataFrame.from_features(geoms)
         g_df.crs = {'init': 'epsg:32638'}
