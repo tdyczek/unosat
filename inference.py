@@ -13,14 +13,16 @@ from models import LinkNet, UNet11, UNetResNet18
 from skimage.transform import resize
 
 MODELS_PATHS = [
-                'data/models/1/Mosul_2015/unet',
-                'data/models/1/Najaf_2015/unet',
-                'data/models/1/Nasiryah_2015/unet',
-                'data/models/1/Souleimaniye_2015/unet'
-                ]
+    'data/models/1/Mosul_2015/unet',
+    'data/models/1/Najaf_2015/unet',
+    'data/models/1/Nasiryah_2015/unet',
+    'data/models/1/Souleimaniye_2015/unet'
+]
 TEST_DATA = Path("data/test")
 OUT_PATH = Path("data/out/5")
-WINDOW_SIZE = 1120
+BIG_WIND = 1120
+SMALL_WIND = 672
+BORDER = int((BIG_WIND - SMALL_WIND) / 2)
 
 
 def get_model(path):
@@ -33,23 +35,34 @@ def get_model(path):
 def infer_one(image, model):
     out_image = np.zeros(image[0].shape, dtype=np.float32)
     vv, vh = image[0], image[1]
-    for x0 in range(0, vv.shape[0], WINDOW_SIZE):
-        for x1 in range(0, vv.shape[1], WINDOW_SIZE):
-            p0, p1 = x0, x1
-            if x0 + WINDOW_SIZE >= vv.shape[0]:
-                x0 = vv.shape[0] - WINDOW_SIZE
+    for x0 in range(0, vv.shape[0], SMALL_WIND):
+        for x1 in range(0, vv.shape[1], SMALL_WIND):
+            if x0 + SMALL_WIND >= vv.shape[0]:
+                x0 = vv.shape[0] - SMALL_WIND
+            if x1 + SMALL_WIND >= vv.shape[1]:
+                x1 = vv.shape[1] - SMALL_WIND
 
-            if x1 + WINDOW_SIZE >= vv.shape[1]:
-                x1 = vv.shape[1] - WINDOW_SIZE
+            if x0 - BORDER < 0:
+                b0 = 0
+            elif x0 + SMALL_WIND + BORDER >= vv.shape[0]:
+                b0 = vv.shape[0] - BIG_WIND
+            else:
+                b0 = x0 - BORDER
 
-            chunk = np.stack([vv[x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE],
-                              vh[x0: x0 + WINDOW_SIZE, x1: x1 + WINDOW_SIZE]], axis=0)
+            if x1 - BORDER < 0:
+                b1 = 0
+            elif x1 + SMALL_WIND + BORDER >= vv.shape[1]:
+                b1 = vv.shape[1] - BIG_WIND
+            else:
+                b1 = x1 - BORDER
+            chunk = np.stack([vv[b0:b0 + BIG_WIND, b1:b1 + BIG_WIND],
+                              vh[b0:b0 + BIG_WIND, b1:b1 + BIG_WIND]], axis=0)
+
             chunk = chunk[np.newaxis, ...]
-            with torch.no_grad():
-                chunk = torch.tensor(chunk).cuda().float()
-                pred = model(chunk)[0, 0].detach().cpu().numpy()
-            out_image[p0: p0 + WINDOW_SIZE, p1: p1 + WINDOW_SIZE] += pred[p0 - x0:, p1 - x1:]
-
+            chunk = torch.tensor(chunk).cuda().float()
+            pred = model(chunk)[0, 0].detach().cpu().numpy()
+            out_image[x0: x0 + SMALL_WIND, x1: x1 + SMALL_WIND] += pred[x0 - b0: x0 - b0 + SMALL_WIND,
+                                                                   x1 - b1: x1 - b1 + SMALL_WIND]
     return out_image
 
 
