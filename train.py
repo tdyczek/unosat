@@ -19,27 +19,29 @@ import numpy as np
 
 TRAIN_PATH = Path('data/train')
 MASK_DIR = Path('data/train/masks')
-MODELS_DIR = Path('data/models/3/')
+MODELS_DIR = Path('data/models/4/')
 
 
 def save_model(model, epoch, model_path):
-    model_name = f"efficient_unet_{epoch}"
+    model_name = f"unet_{epoch}"
     path = model_path / model_name
     torch.save(model.state_dict(), path)
 
 
 def train(epochs: int, models_dir: Path, x_cities: List[CityData], y_city: List[CityData], mask_dir: Path):
-    model = UNetResNet18().cuda()
-    optimizer = Adam(model.parameters(), lr=3e-4)
-    scheduler = ReduceLROnPlateau(optimizer, patience=2, factor=0.3)
+    model = UNet11().cuda()
+    model_path = Path('data/models/1/') / y_city[0].name / 'unet'
+    model.load_state_dict(torch.load(model_path))
+    optimizer = Adam(model.parameters(), lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, patience=1, factor=0.25)
     min_loss = sys.maxsize
     criterion = nn.BCEWithLogitsLoss()
     train_data = DataLoader(TrainDataset(x_cities, mask_dir),
-                            batch_size=8,
-                            num_workers=3, shuffle=True)
+                            batch_size=4,
+                            num_workers=4, shuffle=True)
     test_data = DataLoader(TestDataset(y_city, mask_dir),
-                           batch_size=8,
-                           num_workers=3)
+                           batch_size=6,
+                           num_workers=4)
 
     for epoch in range(epochs):
         print(f'Epoch {epoch}, lr {optimizer.param_groups[0]["lr"]}')
@@ -113,4 +115,4 @@ def main(epochs, models_dir, train_path: Path, mask_dir: Path):
 
 
 if __name__ == "__main__":
-    main(15, MODELS_DIR, TRAIN_PATH, MASK_DIR)
+    main(7, MODELS_DIR, TRAIN_PATH, MASK_DIR)

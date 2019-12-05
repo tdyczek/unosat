@@ -8,23 +8,27 @@ import random
 from constants import TRAIN_WINDOW
 from data_conf import CityData
 from albumentations import Compose, RandomRotate90, VerticalFlip, \
-    HorizontalFlip, Transpose, ShiftScaleRotate, RandomSizedCrop
+    HorizontalFlip, Transpose, ShiftScaleRotate, RandomSizedCrop, \
+    GridDistortion, ShiftScaleRotate, RandomSizedCrop
 
 transform = Compose([
     RandomRotate90(),
     VerticalFlip(),
     HorizontalFlip(),
-    Transpose()
+    Transpose(),
+    GridDistortion(p=0.1),
+    ShiftScaleRotate(p=0.1),
+    RandomSizedCrop((int(0.65*TRAIN_WINDOW), int(0.9*TRAIN_WINDOW)), TRAIN_WINDOW, TRAIN_WINDOW, p=0.1)
 ])
 
 
 def clip_perc(im, l=5, u=95):
     l_perc = np.percentile(im, l)
     u_perc = np.percentile(im, u)
-    return np.clip(im, l_perc, u_perc)
+    return np.clip(im, 0, 2)
 
 
-def load_city_imagery(city: CityData, v_coef=(0.124, 0.129), h_coef=(0.0212, 0.0216)):
+def load_city_imagery(city: CityData, v_coef=(0.142, 0.216), h_coef=(0.0243, 0.0445)):
     raw_ims = []
     for image in city.images:
         vv = clip_perc(imread(image.vv))

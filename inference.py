@@ -13,15 +13,15 @@ from models import LinkNet, UNet11, UNetResNet18
 from skimage.transform import resize
 
 MODELS_PATHS = [
-    'data/models/1/Mosul_2015/unet',
-    'data/models/1/Najaf_2015/unet',
-    'data/models/1/Nasiryah_2015/unet',
-    'data/models/1/Souleimaniye_2015/unet'
+    'data/models/4/Mosul_2015/unet',
+    'data/models/4/Najaf_2015/unet',
+    'data/models/4/Nasiryah_2015/unet',
+    'data/models/4/Souleimaniye_2015/unet'
 ]
 TEST_DATA = Path("data/test")
-OUT_PATH = Path("data/out/5")
+OUT_PATH = Path("data/out/6")
 BIG_WIND = 1120
-SMALL_WIND = 672
+SMALL_WIND = 896
 BORDER = int((BIG_WIND - SMALL_WIND) / 2)
 
 
