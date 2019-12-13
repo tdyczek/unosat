@@ -5,30 +5,46 @@ import numpy as np
 from skimage.io import imread
 import random
 
-from constants import TRAIN_WINDOW
+from constants import TRAIN_WINDOW, U_CLIP, L_CLIP, H_MEAN_STD, V_MEAN_STD
 from data_conf import CityData
-from albumentations import Compose, RandomRotate90, VerticalFlip, \
-    HorizontalFlip, Transpose, ShiftScaleRotate, RandomSizedCrop, \
-    GridDistortion, ShiftScaleRotate, RandomSizedCrop
+from albumentations import (
+    Compose,
+    RandomRotate90,
+    VerticalFlip,
+    HorizontalFlip,
+    Transpose,
+    ShiftScaleRotate,
+    RandomSizedCrop,
+    GridDistortion,
+    ShiftScaleRotate,
+    RandomSizedCrop,
+)
 
-transform = Compose([
-    RandomRotate90(),
-    VerticalFlip(),
-    HorizontalFlip(),
-    Transpose(),
-    GridDistortion(p=0.1),
-    ShiftScaleRotate(p=0.1),
-    RandomSizedCrop((int(0.65*TRAIN_WINDOW), int(0.9*TRAIN_WINDOW)), TRAIN_WINDOW, TRAIN_WINDOW, p=0.1)
-])
+transform = Compose(
+    [
+        RandomRotate90(),
+        VerticalFlip(),
+        HorizontalFlip(),
+        Transpose(),
+        GridDistortion(p=0.1),
+        ShiftScaleRotate(p=0.1),
+        RandomSizedCrop(
+            (int(0.65 * TRAIN_WINDOW), int(0.9 * TRAIN_WINDOW)),
+            TRAIN_WINDOW,
+            TRAIN_WINDOW,
+            p=0.1,
+        ),
+    ]
+)
 
 
 def clip_perc(im, l=5, u=95):
-    l_perc = np.percentile(im, l)
-    u_perc = np.percentile(im, u)
-    return np.clip(im, 0, 2)
+    # l_perc = np.percentile(im, l)
+    # u_perc = np.percentile(im, u)
+    return np.clip(im, L_CLIP, U_CLIP)
 
 
-def load_city_imagery(city: CityData, v_coef=(0.142, 0.216), h_coef=(0.0243, 0.0445)):
+def load_city_imagery(city: CityData, v_coef=V_MEAN_STD, h_coef=H_MEAN_STD):
     raw_ims = []
     for image in city.images:
         vv = clip_perc(imread(image.vv))
@@ -49,17 +65,20 @@ def cut_data(vv, vh, mask, im_size):
     i0 = random.randint(0, vv.shape[0] - im_size)
     i1 = random.randint(0, vv.shape[1] - im_size)
 
-    return vv[i0: i0 + im_size, i1: i1 + im_size], \
-           vh[i0: i0 + im_size, i1: i1 + im_size], \
-           mask[i0: i0 + im_size, i1: i1 + im_size]
+    return (
+        vv[i0 : i0 + im_size, i1 : i1 + im_size],
+        vh[i0 : i0 + im_size, i1 : i1 + im_size],
+        mask[i0 : i0 + im_size, i1 : i1 + im_size],
+    )
 
 
 def count_dataset_size(cities, im_size):
     data_size = 0
     for city in cities:
         for image in city:
-            data_size += (ceil(image[0].shape[0] / im_size) *
-                          ceil(image[0].shape[1] / im_size))
+            data_size += ceil(image[0].shape[0] / im_size) * ceil(
+                image[0].shape[1] / im_size
+            )
     return data_size
 
 
@@ -84,7 +103,7 @@ class TrainDataset:
         x = np.stack([vv, vh, vv - vh], -1)
 
         data = transform(image=x, mask=y)
-        x, y = data['image'], data['mask']
+        x, y = data["image"], data["mask"]
 
         return x.transpose([2, 0, 1])[:2, ...], y
 
@@ -121,6 +140,6 @@ class TestDataset:
                         if x1 + self.im_size >= image[0].shape[1]:
                             x1 = image[0].shape[1] - self.im_size
 
-                        yield vv[x0: x0 + im_size, x1: x1 + im_size], \
-                              vh[x0: x0 + im_size, x1: x1 + im_size], \
-                              mask[x0: x0 + im_size, x1: x1 + im_size]
+                        yield vv[x0 : x0 + im_size, x1 : x1 + im_size], vh[
+                            x0 : x0 + im_size, x1 : x1 + im_size
+                        ], mask[x0 : x0 + im_size, x1 : x1 + im_size]

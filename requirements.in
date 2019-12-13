@@ -1,0 +1,9 @@
+torch
+torchvision
+tqdm
+albumentations
+rasterio
+geopandas
+numpy
+scikit-image
+scikit-learn

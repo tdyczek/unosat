@@ -9,13 +9,13 @@ def clip_perc(im, l=5, u=95):
     return np.clip(im, l_perc, u_perc)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("vv")
-    ims = [clip_perc(imread(pth)).ravel() for pth in Path('.').glob('**/*vv*.tif')]
+    ims = [clip_perc(imread(pth)).ravel() for pth in Path(".").glob("**/*vv*.tif")]
     ims = np.concatenate(ims, axis=None)
     print(np.mean(ims), np.std(ims))
 
     print("vh")
-    ims = [clip_perc(imread(pth)).ravel() for pth in Path('.').glob('**/*vh*.tif')]
+    ims = [clip_perc(imread(pth)).ravel() for pth in Path(".").glob("**/*vh*.tif")]
     ims = np.concatenate(ims, axis=None)
     print(np.mean(ims), np.std(ims))

@@ -23,8 +23,13 @@ class DiceCoeff(Function):
         grad_input = grad_target = None
 
         if self.needs_input_grad[0]:
-            grad_input = grad_output * 2 * (target * self.union + self.inter) \
-                         / self.union * self.union
+            grad_input = (
+                grad_output
+                * 2
+                * (target * self.union + self.inter)
+                / self.union
+                * self.union
+            )
         if self.needs_input_grad[1]:
             grad_target = None
 
@@ -56,8 +61,7 @@ def dice_loss(input, target):
     tflat = target.view(-1)
     intersection = (iflat * tflat).sum()
 
-    return 1 - ((2. * intersection + smooth) /
-                (iflat.sum() + tflat.sum() + smooth))
+    return 1 - ((2.0 * intersection + smooth) / (iflat.sum() + tflat.sum() + smooth))
 
 
 def jaccard(input, target):
