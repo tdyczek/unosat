@@ -1,4 +1,4 @@
-# UNOSAT Challenge
+# UNOSAT Challenge 2nd place solution
 
 ## Installation
 `pip install -r requirements.txt`
